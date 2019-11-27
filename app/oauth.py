@@ -60,7 +60,7 @@ def facebook_logged_in(blueprint, token):
         token = Token(user_id=current_user.id, uuid=str(uuid.uuid4().hex))
         db.session.add(token)
         db.session.commit()
-    return redirect("https://localhost:3000/?api_key={}".format(token.uuid))
+    return redirect("https://xenodochial-mahavira-452f56/?api_key={}".format(token.uuid))
 
 
 # notify on OAuth provider error
