@@ -12,7 +12,6 @@ class User(UserMixin,db.Model):
     email = db.Column(db.String(200), nullable=False, unique=True)
     username = db.Column(db.String(200), nullable=False)
     password = db.Column(db.Text, nullable=False)
-    scores = db.relationship('Score', backref='user')
 
     def set_password(self, password):
         self.password = generate_password_hash(password)
@@ -33,29 +32,6 @@ class Token(db.Model):
     uuid = db.Column(db.String, unique=True) #token
     user_id = db.Column(db.Integer, db.ForeignKey(User.id), nullable=False)
     user = db.relationship(User)
-
-class Score(db.Model):
-    __tablename__ = 'scores'
-    id = db.Column(db.Integer, primary_key=True)
-    wpm = db.Column(db.Float, nullable=False)
-    time = db.Column(db.Integer, nullable=False)
-    accuracy = db.Column(db.Integer, nullable=False)
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
-    excerpt_id = db.Column(db.Integer, db.ForeignKey('excerpts.id'))
-
-    def as_dict(self):
-        return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
-
-class Excerpt(db.Model):
-    __tablename__ = 'excerpts'
-    id = db.Column(db.Integer, primary_key=True)
-    body = db.Column(db.Text, nullable=False)
-    scores = db.relationship('Score', backref='excerpt', lazy=True)
-    
-    def as_dict(self):
-        return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
-
-
 
 
 # setup login manager
