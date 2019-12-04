@@ -41,7 +41,7 @@ def facebook_logged_in(blueprint, token):
 
     else:
         # Create a new local user account for this user
-        user = User(username=info["name"], email=info["name"], password="nonesldjfdf092038402938409823409")
+        user = User(username=info["name"], origin='facebook')
         # Associate the new local user account with the OAuth token
         oauth.user = user
         # Save and commit our database models
@@ -60,8 +60,8 @@ def facebook_logged_in(blueprint, token):
         token = Token(user_id=current_user.id, uuid=str(uuid.uuid4().hex))
         db.session.add(token)
         db.session.commit()
-    # return redirect("https://xenodochial-mahavira-452f56.netlify.com/?api_key={}".format(token.uuid))
-    return redirect("https://127.0.0.1:3000/?api_key={}".format(token.uuid))
+    return redirect("https://projectmanager.haifly.dev/?api_key={}".format(token.uuid))
+    # return redirect("https://127.0.0.1:3000/?api_key={}".format(token.uuid))
 
 
 # notify on OAuth provider error
