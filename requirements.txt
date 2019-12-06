@@ -10,6 +10,7 @@ Flask-Cors==3.0.8
 Flask-Dance==3.0.0
 Flask-Login==0.4.1
 Flask-Migrate==2.5.2
+Flask-Moment==0.9.0
 Flask-SQLAlchemy==2.4.1
 gunicorn==20.0.4
 idna==2.8
