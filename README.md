@@ -42,3 +42,11 @@ I will make a Vietnamese version in the future for those that not speak English 
 ### Landing Page
 
 https://cranky-heyrovsky-7d711c.netlify.com/
+
+
+Implemented Features:
+* [x] User Signup
+* [x] User Sign In by Email
+* [x] User Sign In by Facebook Auth
+* [x] User Create Tasks
+* [ ] User Create Boards
