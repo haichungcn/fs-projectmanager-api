@@ -104,10 +104,29 @@ def logout():
         "success":True
     })
 
+@app.route("/user/<id>/getboards", methods=['GET', 'POST'])
+@login_required
+def get_boards(id):
+    if len(current_user.boards) < 1:
+        return jsonify(success=False, error=f"There is no board")
+    jsonized_board_objects_list = []
+    for board in current_user.boards:
+        jsonized_board_objects_list.append(board.as_dict())
+    return jsonify(success=True, boards=jsonized_board_objects_list)
+
 @app.route("/createboard", methods=['GET', 'POST'])
 @login_required
 def create_board():
-    pass
+    if request.method == "POST":
+        dt = request.get_json()
+        new_board = Board(
+            name = dt['name'],
+            creator_id = current_user.id
+        )
+        db.session.add(new_board)
+        db.session.commit()
+        return jsonify(success=True)
+    return jsonify(success=False)
 
 @app.route("/board/<id>/createtask", methods=['GET', 'POST'])
 @login_required
@@ -133,7 +152,19 @@ def create_task(id):
         return jsonify(success=True)
     return jsonify(success=False)
 
-# @app.route("/")
+
+@app.route("/board/<id>/gettasks", methods=['GET', 'POST'])
+@login_required
+def get_tasks(id):
+    current_board = Board(id = id).check_id()
+    if not current_board:
+        return jsonify(success=False, error=f"There is no board with id#{id}")
+    jsonized_task_objects_list = []
+    for task in current_board.tasks:
+        jsonized_task_objects_list.append(task.as_dict())
+    return jsonify(success=True, tasks=jsonized_task_objects_list)
+
+    
 
 # @app.route('/user/id', methods=['GET'])
 # def user():

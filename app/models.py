@@ -62,11 +62,14 @@ class Board(db.Model):
     tasks = db.relationship("Task", backref="board")
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
 
-    leader_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
 
     def check_id(self):
         return Board.query.filter_by(id=self.id).first()
+
+    def as_dict(self):
+        return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
 
 class Task(db.Model):
     __tablename__ = 'tasks'
@@ -83,11 +86,15 @@ class Task(db.Model):
 
     def check_id(self):
         return Task.query.filter_by(id=self.id).first()
+    
+    def as_dict(self):
+        return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
 
 class Team(db.Model):
     __tablename__ = 'teams'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
+    role = db.Column(db.String, default='member')
 
 team_users = db.Table('team_users',
     db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
@@ -117,11 +124,13 @@ def load_user(user_id):
 @login_manager.request_loader
 def load_user_from_request(request):
     api_key = request.headers.get('Authorization')
+    print('request authorization:', api_key)
     if api_key:
         api_key = api_key.replace('Token ', '', 1)
         token = Token.query.filter_by(uuid=api_key).first()
-        current_datetime = datetime.now()
+        current_datetime = datetime.now().astimezone(tz=None)
         if token:
-            print('comparing token timestamp:', token.timestamp, 'and current_datetime: ', current_datetime)
+            # print('comparing token timestamp:', token.timestamp, 'and current_datetime: ', current_datetime, 'is token > current_datetime', token.timestamp > current_datetime)
+            print('token matched', token, token.user)
             return token.user
     return None
