@@ -21,7 +21,8 @@ class User(UserMixin,db.Model):
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
 
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
-    tasks = db.relationship('Task', backref=db.backref('user', lazy=True))
+    assigned_tasks = db.relationship('Task', foreign_keys='Task.user_id', backref=db.backref('assigned_user', lazy=True))
+    created_tasks = db.relationship('Task', foreign_keys='Task.creator_id', backref=db.backref('creator', lazy=True))
     boards = db.relationship('Board', backref=db.backref('user', lazy=True))
     teams = db.relationship('Team', secondary='team_users', backref=db.backref('users', lazy=True))
     projects = db.relationship('Project', secondary='user_projects', backref=db.backref('users', lazy=True))
@@ -64,13 +65,24 @@ class Board(db.Model):
     leader_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
 
+    def check_id(self):
+        return Board.query.filter_by(id=self.id).first()
+
 class Task(db.Model):
     __tablename__ = 'tasks'
     id = db.Column(db.Integer, primary_key=True)
-    body = db.Column(db.Text)
+    body = db.Column(db.String)
+    note = db.Column(db.Text)
+    status = db.Column(db.String, default='unfinished')
+    priority = db.Column(db.Integer, default=1)
     board_id = db.Column(db.Integer, db.ForeignKey('boards.id'))
     user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    duedate = db.Column(db.DateTime(timezone=True))
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
+
+    def check_id(self):
+        return Task.query.filter_by(id=self.id).first()
 
 class Team(db.Model):
     __tablename__ = 'teams'

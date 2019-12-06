@@ -1,16 +1,23 @@
 from flask import Flask, redirect, url_for, flash, render_template, jsonify, request
 from flask_login import login_required, login_user, logout_user, current_user
 from .config import Config
-from .models import db, login_manager, Token, User
+from .models import db, login_manager, Token, User, Board, Task, Project, Team
 from .oauth import blueprint
 from .cli import create_db
 from flask_migrate import Migrate
 from flask_cors import CORS, cross_origin
 import uuid
+import os
+from flask_moment import Moment
+from datetime import datetime
+
+
 
 app = Flask(__name__)
 app.config.from_object(Config)
-CORS(app, resources=r'/*')
+CORS(app)
+moment = Moment(app)
+
 
 
 app.register_blueprint(blueprint, url_prefix="/login")
@@ -66,15 +73,14 @@ def login():
             login_user(user)
             token = Token.query.filter_by(user_id=user.id).first()
             if not token:
-            # try:
-            #     token = token_query.first()
-            # except NoResultFound:
                 token = Token(user_id=current_user.id, uuid=str(uuid.uuid4().hex))
                 db.session.add(token)
                 db.session.commit()
             print("login success", token)
-            return redirect("https://projectmanager.haifly.dev/?api_key={}".format(token.uuid))
-            # return redirect("https://127.0.0.1:3000/?api_key={}".format(token.uuid))
+            return jsonify(success=True, user={
+                'id': current_user.id,
+                'username': current_user.username
+            }, token=token.uuid)
     return jsonify({'success': False, 'error': 'no sent data'})
 
 @app.route("/getuser", methods=['GET'])
@@ -83,7 +89,6 @@ def getuser():
     return jsonify({"user_id": current_user.id,
                     "user_name": current_user.username,
                     })
-
 
 @app.route("/logout", methods=['GET'])
 @login_required
@@ -99,6 +104,36 @@ def logout():
         "success":True
     })
 
+@app.route("/createboard", methods=['GET', 'POST'])
+@login_required
+def create_board():
+    pass
+
+@app.route("/board/<id>/createtask", methods=['GET', 'POST'])
+@login_required
+def create_task(id):
+    if request.method == 'POST':
+        dt = request.get_json()
+        current_board = Board(id = id).check_id()
+        print('current_board:', current_board)
+        if not current_board:
+            return jsonify(success=False, error=f"There is no board with id#{id}")
+        new_task = Task(
+            body = dt['body'],
+            note = dt['note'],
+            priority = dt['priority'],
+            duedate = datetime.strptime(dt['duedate'], "%Y-%m-%dT%H:%M:%S.%fZ"),
+            board_id = id,
+            user_id = dt['assignees'],
+            creator_id = current_user.id
+        )
+        db.session.add(new_task)
+        db.session.commit()
+        print(new_task)
+        return jsonify(success=True)
+    return jsonify(success=False)
+
+# @app.route("/")
 
 # @app.route('/user/id', methods=['GET'])
 # def user():
