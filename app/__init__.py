@@ -10,6 +10,7 @@ import uuid
 import os
 from flask_moment import Moment
 from datetime import datetime
+from sqlalchemy import desc, asc
 
 
 
@@ -83,13 +84,6 @@ def login():
             }, token=token.uuid)
     return jsonify({'success': False, 'error': 'no sent data'})
 
-@app.route("/getuser", methods=['GET'])
-@login_required
-def getuser():
-    return jsonify({"user_id": current_user.id,
-                    "user_name": current_user.username,
-                    })
-
 @app.route("/logout", methods=['GET'])
 @login_required
 def logout():
@@ -104,13 +98,36 @@ def logout():
         "success":True
     })
 
+@app.route("/getuser", methods=['GET'])
+@login_required
+def getuser():
+    print("user teams", current_user.teams)
+    print("user project", current_user.projects)
+
+    return jsonify({"user_id": current_user.id,
+                    "user_name": current_user.username,
+                    # "user_teams": current_user.teams,
+                    # "user_projects": current_user.projects,
+                    })
+
+@app.route("/getuser/all", methods=['GET'])
+@login_required
+def get_alluser():
+    users = User.query.all()
+    jsonized_user_objects_list = []
+    for user in users:
+        jsonized_user_objects_list.append(user.as_dict())
+    return jsonify(success=True, users=jsonized_user_objects_list)
+
 @app.route("/user/<id>/getboards", methods=['GET', 'POST'])
 @login_required
 def get_boards(id):
-    if len(current_user.boards) < 1:
-        return jsonify(success=False, error=f"There is no board")
+    current_boards = current_user.boards.filter(Board.status != "deleted").order_by(asc(Board.timestamp)).all()
+    print('dsfsdfsdf', current_boards)
+    if len(current_boards) < 1:
+        return jsonify(success=False, error="There is no board")
     jsonized_board_objects_list = []
-    for board in current_user.boards:
+    for board in current_boards:
         jsonized_board_objects_list.append(board.as_dict())
     return jsonify(success=True, boards=jsonized_board_objects_list)
 
@@ -128,13 +145,43 @@ def create_board():
         return jsonify(success=True)
     return jsonify(success=False)
 
+@app.route("/board/<id>", methods=['GET', 'POST'])
+@login_required
+def update_board(id):
+    if request.method == 'POST':
+        dt = request.get_json()
+        current_board = Board(id = id).check_id()
+        if not current_board:
+            return jsonify(success=False, error=f"There is no board with id#{id}")
+        if dt['type'] == 'edit':
+            current_board.name = dt['name']
+        if dt['type'] == 'delete':
+            current_board.status = dt['status']
+        db.session.commit()
+        return jsonify(success=True)
+    return jsonify(success=False)
+    
+
+@app.route("/board/<id>/delete", methods=['GET', 'POST'])
+@login_required
+def delete_board(id):
+    if request.method == 'POST':
+        dt = request.get_json()
+        current_board = Board(id = id).check_id()
+        if not current_board:
+            return jsonify(success=False, error=f"There is no board with id#{id}")
+        db.session.delete(current_board)
+        db.session.commit()
+        return jsonify(success=True)
+    return jsonify(success=False)
+
+
 @app.route("/board/<id>/createtask", methods=['GET', 'POST'])
 @login_required
 def create_task(id):
     if request.method == 'POST':
         dt = request.get_json()
         current_board = Board(id = id).check_id()
-        print('current_board:', current_board)
         if not current_board:
             return jsonify(success=False, error=f"There is no board with id#{id}")
         new_task = Task(
@@ -143,12 +190,11 @@ def create_task(id):
             priority = dt['priority'],
             duedate = datetime.strptime(dt['duedate'], "%Y-%m-%dT%H:%M:%S.%fZ"),
             board_id = id,
-            user_id = dt['assignees'],
+            assignee_id = dt['assignees'],
             creator_id = current_user.id
         )
         db.session.add(new_task)
         db.session.commit()
-        print(new_task)
         return jsonify(success=True)
     return jsonify(success=False)
 
@@ -159,12 +205,39 @@ def get_tasks(id):
     current_board = Board(id = id).check_id()
     if not current_board:
         return jsonify(success=False, error=f"There is no board with id#{id}")
-    jsonized_task_objects_list = []
-    for task in current_board.tasks:
-        jsonized_task_objects_list.append(task.as_dict())
-    return jsonify(success=True, tasks=jsonized_task_objects_list)
+    if current_board.tasks:
+        tasks = current_board.tasks.filter(Task.status != "deleted").order_by(asc(Task.timestamp)).all()
+        jsonized_task_objects_list = []
+        for task in tasks:
+            jsonized_task_objects_list.append(task.as_dict())
+        return jsonify(success=True, tasks=jsonized_task_objects_list)
+    return jsonify(success=True, tasks='' )
 
-    
+@app.route("/task/<id>", methods=['GET', 'POST'])
+@login_required
+def update_tasks(id):
+    if request.method == 'POST':
+        dt = request.get_json()
+        current_task = Task(id = id).check_id()
+        if not current_task:
+            return jsonify(success=False, error=f"There is no task with id#{id}")
+        if dt['type'] == "update":
+            if dt['checked'] == True:
+                current_task.status = "finished"
+            elif dt['checked'] == False:
+                current_task.status = "unfinished"
+        if dt['type'] == "edit":
+            current_task.body = dt['body'],
+            current_task.note = dt['note'],
+            current_task.priority = dt['priority'],
+            current_task.duedate = datetime.strptime(dt['duedate'], "%Y-%m-%dT%H:%M:%S.%fZ"),
+            current_task.assignee_id = dt['assignees'],
+        if dt['type'] == "delete":
+            current_task.status = dt['status']
+
+        db.session.commit()
+        return jsonify(success=True, task=current_task.as_dict())    
+    return jsonify(success=False)    
 
 # @app.route('/user/id', methods=['GET'])
 # def user():

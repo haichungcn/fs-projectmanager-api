@@ -21,9 +21,9 @@ class User(UserMixin,db.Model):
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
 
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
-    assigned_tasks = db.relationship('Task', foreign_keys='Task.user_id', backref=db.backref('assigned_user', lazy=True))
+    assigned_tasks = db.relationship('Task', foreign_keys='Task.assignee_id', backref=db.backref('assigned_user', lazy=True))
     created_tasks = db.relationship('Task', foreign_keys='Task.creator_id', backref=db.backref('creator', lazy=True))
-    boards = db.relationship('Board', backref=db.backref('user', lazy=True))
+    boards = db.relationship('Board', backref=db.backref('user', lazy=True), lazy='dynamic')
     teams = db.relationship('Team', secondary='team_users', backref=db.backref('users', lazy=True))
     projects = db.relationship('Project', secondary='user_projects', backref=db.backref('users', lazy=True))
 
@@ -59,7 +59,8 @@ class Board(db.Model):
     __tablename__ = 'boards'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
-    tasks = db.relationship("Task", backref="board")
+    status = db.Column(db.String, default="active")
+    tasks = db.relationship("Task", backref="board", lazy='dynamic')
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
 
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -79,7 +80,7 @@ class Task(db.Model):
     status = db.Column(db.String, default='unfinished')
     priority = db.Column(db.Integer, default=1)
     board_id = db.Column(db.Integer, db.ForeignKey('boards.id'))
-    user_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     duedate = db.Column(db.DateTime(timezone=True))
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
@@ -131,6 +132,6 @@ def load_user_from_request(request):
         current_datetime = datetime.now().astimezone(tz=None)
         if token:
             # print('comparing token timestamp:', token.timestamp, 'and current_datetime: ', current_datetime, 'is token > current_datetime', token.timestamp > current_datetime)
-            print('token matched', token, token.user)
+            # print('token matched', token, token.user)
             return token.user
     return None
