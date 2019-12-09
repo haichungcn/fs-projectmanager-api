@@ -101,14 +101,31 @@ def logout():
 @app.route("/getuser", methods=['GET'])
 @login_required
 def getuser():
-    print("user teams", current_user.teams)
-    print("user project", current_user.projects)
+    object = {
+        "user_id": current_user.id,
+        "user_name": current_user.username,
+    }
 
-    return jsonify({"user_id": current_user.id,
-                    "user_name": current_user.username,
-                    # "user_teams": current_user.teams,
-                    # "user_projects": current_user.projects,
-                    })
+    if len(current_user.projects) > 0:
+        jsonized_team_objects_list = []
+        for team in current_user.teams:
+            members = []
+            for user in team.users:
+                members.append(user.as_dict())
+            team = team.as_dict()
+            team.update({'members': members})
+            jsonized_team_objects_list.append(team)
+
+        object["teams"] = jsonized_team_objects_list
+
+    if len(current_user.projects) > 0:
+        jsonized_project_objects_list = []
+        for project in current_user.projects:
+            jsonized_project_objects_list.append(project.as_dict())
+
+        object["projects"] = jsonized_project_objects_list
+
+    return jsonify(object)
 
 @app.route("/getuser/all", methods=['GET'])
 @login_required
@@ -123,13 +140,27 @@ def get_alluser():
 @login_required
 def get_boards(id):
     current_boards = current_user.boards.filter(Board.status != "deleted").order_by(asc(Board.timestamp)).all()
-    print('dsfsdfsdf', current_boards)
     if len(current_boards) < 1:
         return jsonify(success=False, error="There is no board")
     jsonized_board_objects_list = []
     for board in current_boards:
         jsonized_board_objects_list.append(board.as_dict())
     return jsonify(success=True, boards=jsonized_board_objects_list)
+
+@app.route("/user/createteam", methods=['GET', 'POST'])
+@login_required
+def create_team():
+    if request.method == "POST":
+        dt = request.get_json()
+        new_team = Team(
+            name = dt['name'],
+            creator_id = current_user.id,
+
+        )
+        db.session.add(new_board)
+        db.session.commit()
+        return jsonify(success=True)
+    return jsonify(success=False)
 
 @app.route("/createboard", methods=['GET', 'POST'])
 @login_required

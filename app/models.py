@@ -18,6 +18,7 @@ class User(UserMixin,db.Model):
     password = db.Column(db.Text)
     avatar_url = db.Column(db.Text)
     origin = db.Column(db.String(200))
+    boardOrder = db.Column(db.String)
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
 
     role_id = db.Column(db.Integer, db.ForeignKey('roles.id'))
@@ -36,6 +37,9 @@ class User(UserMixin,db.Model):
     def check_email(self):
         return User.query.filter_by(email=self.email).first()
 
+    def as_dict(self):
+        return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
+        
 # Define the Role data-model
 class Role(db.Model):
     __tablename__ = 'roles'
@@ -65,6 +69,7 @@ class Board(db.Model):
 
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    project_id = db.Column(db.Integer, db.ForeignKey('projects.id'))
 
     def check_id(self):
         return Board.query.filter_by(id=self.id).first()
@@ -95,18 +100,33 @@ class Team(db.Model):
     __tablename__ = 'teams'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
+    boards = db.relationship('Board', backref=db.backref('team', lazy=True), lazy='dynamic')
+    boardOrder = db.Column(db.String)
+    projects = db.relationship('Project', backref=db.backref('teams', lazy=True))
+    timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
+    
+    def as_dict(self):
+        return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
+
+class Teamuser(db.Model):
+    __tablename__ = 'team_users'
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), primary_key=True)
+    team_id = db.Column(db.Integer, db.ForeignKey('teams.id'), primary_key=True)
     role = db.Column(db.String, default='member')
 
-team_users = db.Table('team_users',
-    db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
-    db.Column('team_id', db.Integer, db.ForeignKey('teams.id'))
-)
 
 class Project(db.Model):
     __tablename__ = 'projects'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
+    boards = db.relationship('Board', backref=db.backref('project', lazy=True), lazy='dynamic')
+    boardOrder = db.Column(db.String)
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
+    timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
+
+    def as_dict(self):
+        return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
 
 user_projects = db.Table('user_projects',
     db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
