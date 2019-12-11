@@ -16,6 +16,7 @@ class User(UserMixin,db.Model):
     email_confirmed_at = db.Column(db.DateTime(timezone=True))
     username = db.Column(db.String(200))
     password = db.Column(db.Text)
+    status = db.Column(db.String, default='unfinished')
     avatar_url = db.Column(db.Text)
     origin = db.Column(db.String(200))
     boardOrder = db.Column(db.String)
@@ -100,6 +101,8 @@ class Team(db.Model):
     __tablename__ = 'teams'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
+    status = db.Column(db.String, default="active")
+    creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     boards = db.relationship('Board', backref=db.backref('team', lazy=True), lazy='dynamic')
     boardOrder = db.Column(db.String)
     projects = db.relationship('Project', backref=db.backref('teams', lazy=True))
@@ -119,6 +122,7 @@ class Project(db.Model):
     __tablename__ = 'projects'
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
+    status = db.Column(db.String, default="active")
     boards = db.relationship('Board', backref=db.backref('project', lazy=True), lazy='dynamic')
     boardOrder = db.Column(db.String)
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))

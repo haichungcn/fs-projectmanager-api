@@ -11,6 +11,7 @@ import os
 from flask_moment import Moment
 from datetime import datetime
 from sqlalchemy import desc, asc
+import random
 
 
 
@@ -60,7 +61,6 @@ def create_user():
     return jsonify({'success': False, 'error': 'no sent data'})
 
 @app.route("/login", methods=['GET', 'POST'])
-@cross_origin(allow_headers=['Content-Type'])
 def login():
     if request.method == 'POST':
         dt = request.get_json()
@@ -101,39 +101,70 @@ def logout():
 @app.route("/getuser", methods=['GET'])
 @login_required
 def getuser():
+    avatars = [
+        "https://img.icons8.com/plasticine/100/000000/person-female.png",
+        "https://img.icons8.com/plasticine/100/000000/person-male.png"
+    ]
     object = {
         "user_id": current_user.id,
         "user_name": current_user.username,
+        "avatar_url": current_user.avatar_url
     }
-
-    if len(current_user.projects) > 0:
+    # if current_user.avatar_url:
+    #     object["avatar_url"] = current_user.avatar_url
+    # else:
+    #     oject["avatar_url"] = avatars[random.randint(0, 1)]
+    object["avatar_url"] = current_user.avatar_url if current_user.avatar_url else avatars[random.randint(0, 1)]
+    # Get User's Teams
+    if len(current_user.teams) > 0:
         jsonized_team_objects_list = []
         for team in current_user.teams:
-            members = []
-            for user in team.users:
-                members.append(user.as_dict())
-            team = team.as_dict()
-            team.update({'members': members})
-            jsonized_team_objects_list.append(team)
-
+            if team.status != "deleted":
+                members = []
+                for user in team.users:
+                    members.append(user.as_dict())
+                team = team.as_dict()
+                team.update({'members': members})
+                jsonized_team_objects_list.append(team)
         object["teams"] = jsonized_team_objects_list
 
+    # Get User's Projects
     if len(current_user.projects) > 0:
         jsonized_project_objects_list = []
         for project in current_user.projects:
-            jsonized_project_objects_list.append(project.as_dict())
-
+            if project.status != "deleted":
+                jsonized_project_objects_list.append(project.as_dict())
         object["projects"] = jsonized_project_objects_list
 
     return jsonify(object)
 
 @app.route("/getuser/all", methods=['GET'])
 @login_required
-def get_alluser():
-    users = User.query.all()
+def get_all_user():
+    avatars = [
+        "https://img.icons8.com/plasticine/100/000000/person-female.png",
+        "https://img.icons8.com/plasticine/100/000000/person-male.png"
+    ]
+    users = User.query.filter_by(status='active').filter(User.id!=1).all()
     jsonized_user_objects_list = []
+    userObject = {}
     for user in users:
-        jsonized_user_objects_list.append(user.as_dict())
+        userObject = {
+            "id": user.id,
+            "username": user.username,
+        }
+
+        if user.email:
+            userObject["email"] = user.email 
+        else:
+            userObject['email'] = user.origin
+
+        if user.avatar_url:
+            userObject["avatar_url"] = user.avatar_url
+        else: 
+            userObject["avatar_url"] = avatars[random.randint(0, 1)]
+
+        jsonized_user_objects_list.append(userObject)
     return jsonify(success=True, users=jsonized_user_objects_list)
 
 @app.route("/user/<id>/getboards", methods=['GET', 'POST'])
@@ -147,7 +178,68 @@ def get_boards(id):
         jsonized_board_objects_list.append(board.as_dict())
     return jsonify(success=True, boards=jsonized_board_objects_list)
 
-@app.route("/user/createteam", methods=['GET', 'POST'])
+@app.route("/project/<id>/getdata", methods=['GET', 'POST'])
+@login_required
+def get_project_data(id):
+    current_proj = Project.query.filter_by(id = id, creator_id = current_user.id, status = 'active').first()
+    if not current_proj:
+        return jsonify(success=False, error="There is no project")
+    current_boards = current_proj.boards.filter(Board.status != "deleted").order_by(asc(Board.timestamp)).all()
+    print('current_boards', current_boards)
+    if len(current_boards) < 1:
+        return jsonify(success=False, error="There is no board")
+    jsonized_board_objects_list = []
+    for board in current_boards:
+        jsonized_board_objects_list.append(board.as_dict())
+    return jsonify(success=True, projects=current_proj.as_dict(), boards=jsonized_board_objects_list)
+
+
+
+@app.route("/team/<id>/getdata", methods=['GET', 'POST'])
+@login_required
+def get_team_data(id):
+    current_team = Team.query.filter_by(id = id, status = 'active').first()
+    if not current_team:
+        return jsonify(success=False, error="There is no team")
+    current_boards = current_team.boards.filter(Board.status != "deleted").order_by(asc(Board.timestamp)).all()
+    print("currentBoard", current_boards)
+    jsonized_board_objects_list = []
+    if len(current_boards) > 0:
+        for board in current_boards:
+            jsonized_board_objects_list.append(board.as_dict())
+            
+    avatars = [
+        "https://img.icons8.com/plasticine/100/000000/person-female.png",
+        "https://img.icons8.com/plasticine/100/000000/person-male.png"
+    ]
+    jsonized_user_objects_list = []
+    print("sdfsdfsdf", current_team.users)
+    for user in current_team.users:
+        userObject = {
+            "id": user.id,
+            "username": user.username,
+        }
+
+        if user.email:
+            userObject["email"] = user.email 
+        else:
+            userObject['email'] = user.origin
+
+        if user.avatar_url:
+            userObject["avatar_url"] = user.avatar_url
+        else: 
+            userObject["avatar_url"] = avatars[random.randint(0, 1)]
+
+        jsonized_user_objects_list.append(userObject)
+
+    return jsonify(
+        success=True,
+        team=current_team.as_dict(),
+        boards=jsonized_board_objects_list,
+        users=jsonized_user_objects_list
+    )
+
+@app.route("/createteam", methods=['GET', 'POST'])
 @login_required
 def create_team():
     if request.method == "POST":
@@ -155,9 +247,33 @@ def create_team():
         new_team = Team(
             name = dt['name'],
             creator_id = current_user.id,
-
         )
-        db.session.add(new_board)
+        db.session.add(new_team)
+        new_team.users.append(current_user)
+
+        if len(dt['users']) > 0:
+            for id in dt['users']:
+                new_user = User.query.get(id)
+                if not new_user in new_team.users:
+                    new_team.users.append(new_user)
+
+        db.session.commit()
+        print(new_team)
+        return jsonify(success=True, team=new_team.as_dict())
+    return jsonify(success=False)
+
+@app.route("/team/<id>/editteam", methods=['GET', 'POST'])
+@login_required
+def edit_team(id):
+    if request.method == "POST":
+        dt = request.get_json()
+        current_team = Team.query.filter_by(id=id).first()
+        if not current_team:
+            return jsonify(success=False, error=f"There is no team with id:{id}")
+        user = User.query.filter_by(id = dt['user_id']).first()
+        if not user:
+            return jsonify(success=False, error=f"There is no user with id:{id}")
+        current_team.users.append(user)
         db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False)
