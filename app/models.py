@@ -67,6 +67,7 @@ class Board(db.Model):
     status = db.Column(db.String, default="active")
     tasks = db.relationship("Task", backref="board", lazy='dynamic')
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
+    parent_id = db.Column(db.Integer, default=0)
 
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
@@ -74,6 +75,14 @@ class Board(db.Model):
 
     def check_id(self):
         return Board.query.filter_by(id=self.id).first()
+
+    def delete_all(self):
+        all_tasks = Board.query.filter_by(id=self.id).first().tasks.all()
+        if len(all_tasks) < 1:
+            return False
+        for task in all_tasks:
+            task.status = "deleted"
+        return True
 
     def as_dict(self):
         return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
@@ -85,6 +94,7 @@ class Task(db.Model):
     note = db.Column(db.Text)
     status = db.Column(db.String, default='unfinished')
     priority = db.Column(db.Integer, default=1)
+    parent_id = db.Column(db.Integer, default=0)
     board_id = db.Column(db.Integer, db.ForeignKey('boards.id'))
     assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
@@ -123,6 +133,7 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
     status = db.Column(db.String, default="active")
+    project_type = db.Column(db.String)
     boards = db.relationship('Board', backref=db.backref('project', lazy=True), lazy='dynamic')
     boardOrder = db.Column(db.String)
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))

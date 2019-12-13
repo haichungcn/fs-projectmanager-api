@@ -193,8 +193,6 @@ def get_project_data(id):
         jsonized_board_objects_list.append(board.as_dict())
     return jsonify(success=True, projects=current_proj.as_dict(), boards=jsonized_board_objects_list)
 
-
-
 @app.route("/team/<id>/getdata", methods=['GET', 'POST'])
 @login_required
 def get_team_data(id):
@@ -202,7 +200,7 @@ def get_team_data(id):
     if not current_team:
         return jsonify(success=False, error="There is no team")
     current_boards = current_team.boards.filter(Board.status != "deleted").order_by(asc(Board.timestamp)).all()
-    print("currentBoard", current_boards)
+    # print("currentBoard", current_boards)
     jsonized_board_objects_list = []
     if len(current_boards) > 0:
         for board in current_boards:
@@ -213,7 +211,7 @@ def get_team_data(id):
         "https://img.icons8.com/plasticine/100/000000/person-male.png"
     ]
     jsonized_user_objects_list = []
-    print("sdfsdfsdf", current_team.users)
+    # print("sdfsdfsdf", current_team.users)
     for user in current_team.users:
         userObject = {
             "id": user.id,
@@ -238,6 +236,32 @@ def get_team_data(id):
         boards=jsonized_board_objects_list,
         users=jsonized_user_objects_list
     )
+
+@app.route("/createproject", methods=['GET', 'POST'])
+@login_required
+def create_project():
+    if request.method == "POST":
+        dt = request.get_json()
+        new_project = Project(
+            name = dt['name'],
+            creator_id = current_user.id,
+        )
+        db.session.add(new_project)
+
+        if dt["project_type"] == "personal":
+            new_project.project_type = "personal"
+            new_project.users.append(current_user)
+            
+        if dt["project_type"] == "team" and dt['team_id']:
+            new_project.team_id = dt['team_id']
+            new_project.project_type = "team"
+            current_team = Team.query.get(dt['team_id'])
+            if current_team.status == "active":
+                current_team.projects.append(new_project)
+
+        db.session.commit()
+        return jsonify(success=True, team=new_project.as_dict())
+    return jsonify(success=False)
 
 @app.route("/createteam", methods=['GET', 'POST'])
 @login_required
@@ -267,13 +291,55 @@ def create_team():
 def edit_team(id):
     if request.method == "POST":
         dt = request.get_json()
-        current_team = Team.query.filter_by(id=id).first()
+        current_team = Team.query.filter_by(id=id, status = "active").first()
         if not current_team:
-            return jsonify(success=False, error=f"There is no team with id:{id}")
-        user = User.query.filter_by(id = dt['user_id']).first()
-        if not user:
-            return jsonify(success=False, error=f"There is no user with id:{id}")
-        current_team.users.append(user)
+            return jsonify(success=False, error=f"There is no active team with id:{id}")
+        if current_team.creator_id != current_user.id:
+            return jsonify(success=False, error=f"Current User is not the creator of team #{id}")
+
+        if dt["type"] == "delete":
+            current_team.status = "deleted"
+            if len(current_team.boards.all()) > 0:
+                for board in current_team.boards.all():
+                    board.status = "deleted"
+                    board.delete_all()
+
+        if dt["type"] == "edit":
+            current_team.name = dt['name']
+            for id in dt['users']:
+                new_user = User.query.filter_by(id = id, status = "active").first()
+                if new_user and (not new_user in current_team.users):
+                    current_team.users.append(new_user)
+
+        db.session.commit()
+        return jsonify(success=True)
+    return jsonify(success=False)
+
+@app.route("/project/<id>/", methods=['GET', 'POST'])
+@login_required
+def edit_project(id):
+    if request.method == "POST":
+        dt = request.get_json()
+        current_project = Project.query.filter_by(id = id, status = "active").first()
+        if not current_project:
+            return jsonify(success=False, error=f"There is no active project with id:{id}")
+        if current_project.creator_id != current_user.id:
+            return jsonify(success=False, error=f"Current User is not the creator of projet #{id}")
+
+        if dt["type"] == "delete":
+            current_project.status = "deleted"
+            if len(current_project.boards.all()) > 0:
+                for board in current_project.boards.all():
+                    board.status = "deleted"
+                    board.delete_all()
+
+        if dt["type"] == "edit":
+            current_project.name = dt['name']
+            for id in dt['users']:
+                new_user = User.query.filter_by(id = id, status = "active").first()
+                if new_user and (not new_user in current_project.users):
+                    current_project.users.append(new_user)
+
         db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False)
@@ -300,10 +366,13 @@ def update_board(id):
         current_board = Board(id = id).check_id()
         if not current_board:
             return jsonify(success=False, error=f"There is no board with id#{id}")
+        if current_board.creator_id != current_user.id:
+            return jsonify(success=False, error=f"Current user is not the creator of board #{id}")
         if dt['type'] == 'edit':
             current_board.name = dt['name']
         if dt['type'] == 'delete':
-            current_board.status = dt['status']
+            current_board.status = "deleted"
+            current_board.delete_all()
         db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False)
@@ -317,7 +386,10 @@ def delete_board(id):
         current_board = Board(id = id).check_id()
         if not current_board:
             return jsonify(success=False, error=f"There is no board with id#{id}")
-        db.session.delete(current_board)
+        if current_board.creator_id != current_user.id:
+            return jsonify(success=False, error=f"Current user is not the creator of board #{id}")
+        current_board.status="deleted"
+        current_board.delete_all()
         db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False)
@@ -337,10 +409,19 @@ def create_task(id):
             priority = dt['priority'],
             duedate = datetime.strptime(dt['duedate'], "%Y-%m-%dT%H:%M:%S.%fZ"),
             board_id = id,
-            assignee_id = dt['assignees'],
             creator_id = current_user.id
         )
         db.session.add(new_task)
+
+        for id in dt['assignees']:
+            if type(id) is int:
+                new_user = User.query.get(id) 
+                if new_user:
+                    if not new_task in new_user.assigned_tasks:
+                        new_user.assigned_tasks.append(new_task)
+            else: 
+                current_user.assigned_tasks.append(new_task)
+
         db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False)
@@ -394,6 +475,7 @@ def update_tasks(id):
 #         jsonized_excerpt_objects_list.append(excerpt.as_dict())
 
 #     return jsonify(jsonized_excerpt_objects_list)
+
 
 @app.errorhandler(500)
 def server_error(e):
