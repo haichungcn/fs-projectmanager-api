@@ -67,11 +67,13 @@ class Board(db.Model):
     status = db.Column(db.String, default="active")
     tasks = db.relationship("Task", backref="board", lazy='dynamic')
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
-    parent_id = db.Column(db.Integer, default=0)
+    parent_id = db.Column(db.Integer)
 
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
+    user_order = db.Column(db.Integer)
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'))
+    project_order = db.Column(db.Integer)
 
     def check_id(self):
         return Board.query.filter_by(id=self.id).first()
@@ -96,6 +98,7 @@ class Task(db.Model):
     priority = db.Column(db.Integer, default=1)
     parent_id = db.Column(db.Integer, default=0)
     board_id = db.Column(db.Integer, db.ForeignKey('boards.id'))
+    order = db.Column(db.Integer)
     assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     duedate = db.Column(db.DateTime(timezone=True))
@@ -115,11 +118,16 @@ class Team(db.Model):
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     boards = db.relationship('Board', backref=db.backref('team', lazy=True), lazy='dynamic')
     boardOrder = db.Column(db.String)
-    projects = db.relationship('Project', backref=db.backref('teams', lazy=True))
+    projects = db.relationship('Project', backref=db.backref('teams', lazy=True), lazy="dynamic")
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
     
     def as_dict(self):
         return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
+    def delete_all(self):
+        projects = Team.query.get(id).projects.all()
+        for project in projects:
+            project.status = "deleted"
+            project.delete_all()
 
 class Teamuser(db.Model):
     __tablename__ = 'team_users'
@@ -135,13 +143,18 @@ class Project(db.Model):
     status = db.Column(db.String, default="active")
     project_type = db.Column(db.String)
     boards = db.relationship('Board', backref=db.backref('project', lazy=True), lazy='dynamic')
-    boardOrder = db.Column(db.String)
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
 
     def as_dict(self):
         return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
+    def delete_all(self):
+        boards = Project.query.get(id).boards.all()
+        for board in boards:
+            board.status = "deleted"
+            board.delete_all()
+
 
 user_projects = db.Table('user_projects',
     db.Column('user_id', db.Integer, db.ForeignKey('users.id')),
@@ -160,7 +173,7 @@ def load_user(user_id):
 @login_manager.request_loader
 def load_user_from_request(request):
     api_key = request.headers.get('Authorization')
-    print('request authorization:', api_key)
+    # print('request authorization:', api_key)
     if api_key:
         api_key = api_key.replace('Token ', '', 1)
         token = Token.query.filter_by(uuid=api_key).first()
