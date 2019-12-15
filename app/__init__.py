@@ -182,7 +182,7 @@ def get_boards(id):
         for board in current_boards:
             boards[f"board-{board.id}"] = board.as_dict()
             boardList.append(f"board-{board.id}")
-    return jsonify(success=True, **boards, boardList=boardList)
+    return jsonify(success=True, boards=boards, boardList=boardList)
 
 @app.route("/project/<id>/getdata", methods=['GET'])
 @login_required
@@ -206,25 +206,18 @@ def get_team_data(id):
     current_team = Team.query.filter_by(id = id, status = 'active').first()
     if not current_team:
         return jsonify(success=False, error="There is no team")
-    current_boards = current_team.boards.filter(Board.status != "deleted").order_by(asc(Board.timestamp)).all()
-    # print("currentBoard", current_boards)
-    jsonized_board_objects_list = []
-    if len(current_boards) > 0:
-        for board in current_boards:
-            jsonized_board_objects_list.append(board.as_dict())
-            
     avatars = [
         "https://img.icons8.com/plasticine/100/000000/person-female.png",
         "https://img.icons8.com/plasticine/100/000000/person-male.png"
     ]
     jsonized_user_objects_list = []
-    # print("sdfsdfsdf", current_team.users)
+    current_projects = current_team.projects.filter(Project.status != "deleted").order_by(asc(Project.timestamp)).all()
+    # print("currentBoard", current_boards)
     for user in current_team.users:
         userObject = {
             "id": user.id,
             "username": user.username,
         }
-
         if user.email:
             userObject["email"] = user.email 
         else:
@@ -234,14 +227,22 @@ def get_team_data(id):
             userObject["avatar_url"] = user.avatar_url
         else: 
             userObject["avatar_url"] = avatars[random.randint(0, 1)]
-
         jsonized_user_objects_list.append(userObject)
+    current_team = current_team.as_dict()
+    current_team['members'] = jsonized_user_objects_list        
+    projectList, projects = [], {}
+    if len(current_projects) > 0:
+        for project in current_projects:
+            projects[f"project-{project.id}"] = project.as_dict()
+            projectList.append(f"project-{project.id}")
+        current_team["projectList"] = projectList
+
+    # print("sdfsdfsdf", current_team.users)
 
     return jsonify(
         success=True,
-        team=current_team.as_dict(),
-        boards=jsonized_board_objects_list,
-        users=jsonized_user_objects_list
+        team=current_team,
+        projects=projects,
     )
 
 @app.route("/createproject", methods=['GET', 'POST'])
@@ -267,7 +268,7 @@ def create_project():
                 current_team.projects.append(new_project)
 
         db.session.commit()
-        return jsonify(success=True, team=new_project.as_dict())
+        return jsonify(success=True, project=new_project.as_dict())
     return jsonify(success=False)
 
 @app.route("/createteam", methods=['GET', 'POST'])
@@ -288,7 +289,32 @@ def create_team():
                 if not new_user in new_team.users:
                     new_team.users.append(new_user)
 
+        new_project = Project(
+            name=dt['projectname'] or "Default Project",
+            project_type="team",
+            creator_id=current_user.id, 
+            team_id=new_team.id
+        )
+        db.session.add(new_project)
         db.session.commit()
+        if dt['projecttype'] == "todo":
+            new_board_1 = Board(name="To-Do", creator_id=current_user.id, project_id=new_project.id, project_order=1)
+            new_board_2 = Board(name="Doing", creator_id=current_user.id, project_id=new_project.id, project_order=2)
+            new_board_3 = Board(name="Done", creator_id=current_user.id, project_id=new_project.id, project_order=3)
+            db.session.add(new_board_1)
+            db.session.add(new_board_2)
+            db.session.add(new_board_3)
+
+        elif dt['projecttype'] == "user":
+            for i, user in enumerate(new_team.users):
+                new_board = Board(name=user.name, creator_id=current_user.id, project_id=new_project.id, project_order=i+1)
+                db.session.add(new_board)
+        elif dt['projecttype'] == "none":
+            new_board = Board(name="To-Do", creator_id=current_user.id, project_id=new_project.id, project_order=1)
+            db.session.add(new_board)
+        
+        db.session.commit()
+
         print(new_team)
         return jsonify(success=True, team=new_team.as_dict())
     return jsonify(success=False)
@@ -319,7 +345,7 @@ def edit_team(id):
         return jsonify(success=True)
     return jsonify(success=False)
 
-@app.route("/project/<id>/", methods=['GET', 'POST'])
+@app.route("/project/<id>", methods=['GET', 'POST'])
 @login_required
 def edit_project(id):
     if request.method == "POST":
@@ -336,13 +362,23 @@ def edit_project(id):
 
         if dt["type"] == "edit":
             current_project.name = dt['name']
-            for id in dt['users']:
-                new_user = User.query.filter_by(id = id, status = "active").first()
-                if new_user and (not new_user in current_project.users):
-                    current_project.users.append(new_user)
+            # for id in dt['users']:
+            #     new_user = User.query.filter_by(id = id, status = "active").first()
+            #     if new_user and (not new_user in current_project.users):
+            #         current_project.users.append(new_user)
 
         db.session.commit()
-        return jsonify(success=True)
+        
+        current_boards = current_project.boards.filter(Board.status != "deleted").order_by(asc(Board.project_order)).all()
+        if len(current_boards) < 1:
+            return jsonify(success=False, error="There is no board")
+        boardList = []
+        for board in current_boards:
+            boardList.append(f"board-{board.id}")
+        current_project = current_project.as_dict()
+        current_project["boardList"] = boardList
+
+        return jsonify(success=True, project=current_project)
     return jsonify(success=False)
 
 @app.route("/createboard", methods=['GET', 'POST'])
@@ -358,19 +394,20 @@ def create_board():
             new_board.team_id = dt["team"]
         if dt["type"]=="project":
             new_board.project_id = dt["project"]
-            last_board = Board.query.filter_by(status="active", project_id=dt["project"])\
-                .order_by(desc(Board.project_order)).first()
-            new_board.project_order = int(last_board.project_order) + 1 if last_board else 1
+            last_board = Project.query.get(dt["project"]).boards\
+                .filter(Board.status=="active").order_by(desc(Board.project_order)).first()
+            if last_board and last_board.project_order != None:
+                new_board.project_order = int(last_board.project_order) + 1
+            else: new_board.project_order = 1
+
         elif dt["type"]=="personal":
             last_board = current_user.boards\
                 .filter_by(status="active", project_id=None, team_id=None)\
                     .order_by(desc(Board.user_order)).first()
-            print("LASTBOARD", last_board)
-            if last_board:
+            if last_board and last_board.user_order != None:
                 new_board.user_order = int(last_board.user_order) + 1
             else: new_board.user_order = 1
         
-        print("NEWBOARD", new_board)
         db.session.add(new_board)
         db.session.commit()
         return jsonify(success=True)
@@ -390,14 +427,24 @@ def update_board(id):
             current_board.name = dt['name']
         if dt['type'] == 'delete':
             current_board.status = "deleted"
+            if current_board.project_id:
+                following_boards = Project.query.get(current_board.project_id).boards\
+                    .filter(Board.status=="active", Board.project_order>current_board.project_order).all()
+                for board in following_boards:
+                    board.project_order -=1
+            else:
+                following_boards = current_user.boards\
+                    .filter(Board.status=="active", Board.user_order>current_board.user_order).all()
+                for board in following_boards:
+                    board.user_order -=1
             current_board.delete_all()
         db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False)
     
-@app.route("/board/<id>/delete", methods=['GET', 'POST'])
-@login_required
-def delete_board(id):
+# @app.route("/board/<id>/delete", methods=['GET', 'POST'])
+# @login_required
+# def delete_board(id):
     if request.method == 'POST':
         dt = request.get_json()
         current_board = Board(id = id).check_id()
@@ -406,8 +453,23 @@ def delete_board(id):
         if current_board.creator_id != current_user.id:
             return jsonify(success=False, error=f"Current user is not the creator of board #{id}")
         current_board.status="deleted"
-        current_board.delete_all()
-        db.session.commit()
+
+        print("I'm here")
+        following_boards = Project.query.get(current_board.project_id).boards\
+            .filter(Board.status=="active", Board.project_order>current_board.project_order).all()
+        for board in following_boards:
+            board.project_order -=1
+        print("FOLLOWING BOARDS by Project id", following_boards)
+        if not folowing_boards:
+            following_boards = current_user.boards\
+                .filter(Board.status=="active", Board.user_order>current_board.user_order).all()
+            print("following_boards",following_boards)
+            for board in following_boards:
+                board.user_order -=1
+                print("board.user_order", board.id, board.user_order)
+
+        # current_board.delete_all()
+        # db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False)
 
@@ -490,7 +552,7 @@ def update_tasks(id):
                 for task in following_tasks:
                     task.order -= 1
         db.session.commit()
-        return jsonify(success=True)    
+        return jsonify(success=True, task=current_task.as_dict())    
     return jsonify(success=False)    
 
 # @app.route('/user/id', methods=['GET'])

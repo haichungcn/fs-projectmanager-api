@@ -124,7 +124,7 @@ class Team(db.Model):
     def as_dict(self):
         return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
     def delete_all(self):
-        projects = Team.query.get(id).projects.all()
+        projects = Team.query.filter_by(id=self.id).first().projects.all()
         for project in projects:
             project.status = "deleted"
             project.delete_all()
@@ -141,7 +141,7 @@ class Project(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(200))
     status = db.Column(db.String, default="active")
-    project_type = db.Column(db.String)
+    project_type = db.Column(db.String) # team or personal
     boards = db.relationship('Board', backref=db.backref('project', lazy=True), lazy='dynamic')
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
@@ -150,7 +150,7 @@ class Project(db.Model):
     def as_dict(self):
         return {c.name: str(getattr(self, c.name)) for c in self.__table__.columns}
     def delete_all(self):
-        boards = Project.query.get(id).boards.all()
+        boards = Project.query.filter_by(id=self.id).first().boards.all()
         for board in boards:
             board.status = "deleted"
             board.delete_all()
