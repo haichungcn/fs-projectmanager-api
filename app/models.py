@@ -117,7 +117,6 @@ class Team(db.Model):
     status = db.Column(db.String, default="active")
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     boards = db.relationship('Board', backref=db.backref('team', lazy=True), lazy='dynamic')
-    boardOrder = db.Column(db.String)
     projects = db.relationship('Project', backref=db.backref('teams', lazy=True), lazy="dynamic")
     timestamp = db.Column(db.DateTime(timezone=True), server_default = db.func.now())
     

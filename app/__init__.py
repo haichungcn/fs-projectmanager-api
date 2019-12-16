@@ -371,14 +371,14 @@ def edit_project(id):
         
         current_boards = current_project.boards.filter(Board.status != "deleted").order_by(asc(Board.project_order)).all()
         if len(current_boards) < 1:
-            return jsonify(success=False, error="There is no board")
+            return jsonify(success=True, project=current_project.as_dict())
         boardList = []
         for board in current_boards:
             boardList.append(f"board-{board.id}")
         current_project = current_project.as_dict()
         current_project["boardList"] = boardList
 
-        return jsonify(success=True, project=current_project)
+        return jsonify(success=True, project=current_project.as_dict())
     return jsonify(success=False)
 
 @app.route("/createboard", methods=['GET', 'POST'])
@@ -496,8 +496,7 @@ def create_task(id):
             new_task.order = last_task.order + 1
 
         db.session.add(new_task)
-        if not dt["assignees"]:
-            current_user.assigned_tasks.append(new_task)
+        current_user.assigned_tasks.append(new_task)
         for id in dt['assignees']:
             if type(id) is int:
                 new_user = User.query.get(id) 
