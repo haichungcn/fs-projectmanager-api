@@ -56,6 +56,7 @@ def create_user():
         )
         user.set_password(dt['password'])
         db.session.add(user)
+        db.session.commit()
 
         new_board = Board(name="To-Do", creator_id=current_user.id, user_order=1)
         db.session.add(new_board)
