@@ -364,7 +364,7 @@ def edit_project(id):
 
         if dt["type"] == "delete" and current_project.creator_id == current_user.id:
             current_project.status = "deleted"
-            current_projct.delete_all()
+            current_project.delete_all()
 
         if dt["type"] == "edit":
             current_project.name = dt['name']
