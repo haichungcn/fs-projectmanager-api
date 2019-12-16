@@ -510,6 +510,10 @@ def update_tasks(id):
                 current_task.status = "finished"
             elif dt['checked'] == False:
                 current_task.status = "unfinished"
+            elif dt['toggled'] == True:
+                current_task.status = "in progress"
+            elif dt['toggled'] == False:
+                current_task.status = "unfinished"
         if dt['type'] == "edit":
             current_task.body = dt['body'],
             current_task.note = dt['note'],
