@@ -51,10 +51,15 @@ def create_user():
         user = User(
             email = dt['email'],
             username = dt['username'],
-            origin = 'email'
+            origin = 'email',
+            role_id = 2,
         )
         user.set_password(dt['password'])
         db.session.add(user)
+
+        new_board = Board(name="To-Do", creator_id=current_user.id, user_order=1)
+        db.session.add(new_board)
+
         db.session.commit()
         return jsonify({'success': True})
 
@@ -307,7 +312,7 @@ def create_team():
 
         elif dt['projecttype'] == "user":
             for i, user in enumerate(new_team.users):
-                new_board = Board(name=user.name, creator_id=current_user.id, project_id=new_project.id, project_order=i+1)
+                new_board = Board(name=user.username, creator_id=current_user.id, project_id=new_project.id, project_order=i+1)
                 db.session.add(new_board)
         elif dt['projecttype'] == "none":
             new_board = Board(name="To-Do", creator_id=current_user.id, project_id=new_project.id, project_order=1)
@@ -441,37 +446,6 @@ def update_board(id):
         db.session.commit()
         return jsonify(success=True)
     return jsonify(success=False)
-    
-# @app.route("/board/<id>/delete", methods=['GET', 'POST'])
-# @login_required
-# def delete_board(id):
-    if request.method == 'POST':
-        dt = request.get_json()
-        current_board = Board(id = id).check_id()
-        if not current_board:
-            return jsonify(success=False, error=f"There is no board with id#{id}")
-        if current_board.creator_id != current_user.id:
-            return jsonify(success=False, error=f"Current user is not the creator of board #{id}")
-        current_board.status="deleted"
-
-        print("I'm here")
-        following_boards = Project.query.get(current_board.project_id).boards\
-            .filter(Board.status=="active", Board.project_order>current_board.project_order).all()
-        for board in following_boards:
-            board.project_order -=1
-        print("FOLLOWING BOARDS by Project id", following_boards)
-        if not folowing_boards:
-            following_boards = current_user.boards\
-                .filter(Board.status=="active", Board.user_order>current_board.user_order).all()
-            print("following_boards",following_boards)
-            for board in following_boards:
-                board.user_order -=1
-                print("board.user_order", board.id, board.user_order)
-
-        # current_board.delete_all()
-        # db.session.commit()
-        return jsonify(success=True)
-    return jsonify(success=False)
 
 @app.route("/board/<id>/createtask", methods=['GET', 'POST'])
 @login_required
@@ -553,15 +527,6 @@ def update_tasks(id):
         db.session.commit()
         return jsonify(success=True, task=current_task.as_dict())    
     return jsonify(success=False)    
-
-# @app.route('/user/id', methods=['GET'])
-# def user():
-#     excerpts = Excerpt.query.all()
-#     jsonized_excerpt_objects_list = []
-#     for excerpt in excerpts:
-#         jsonized_excerpt_objects_list.append(excerpt.as_dict())
-
-#     return jsonify(jsonized_excerpt_objects_list)
 
 
 @app.errorhandler(500)

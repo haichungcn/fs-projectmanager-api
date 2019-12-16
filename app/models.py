@@ -74,6 +74,7 @@ class Board(db.Model):
     team_id = db.Column(db.Integer, db.ForeignKey('teams.id'))
     project_id = db.Column(db.Integer, db.ForeignKey('projects.id'))
     project_order = db.Column(db.Integer)
+    board_type = db.Column(db.String, default="normal")
 
     def check_id(self):
         return Board.query.filter_by(id=self.id).first()
@@ -98,6 +99,8 @@ class Task(db.Model):
     priority = db.Column(db.Integer, default=1)
     parent_id = db.Column(db.Integer, default=0)
     board_id = db.Column(db.Integer, db.ForeignKey('boards.id'))
+    progress_board_id = db.Column(db.Integer)
+    finished_board_id = db.Column(db.Integer)
     order = db.Column(db.Integer)
     assignee_id = db.Column(db.Integer, db.ForeignKey('users.id'))
     creator_id = db.Column(db.Integer, db.ForeignKey('users.id'))
