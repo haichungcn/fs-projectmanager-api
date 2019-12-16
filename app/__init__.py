@@ -528,6 +528,20 @@ def update_tasks(id):
         return jsonify(success=True, task=current_task.as_dict())    
     return jsonify(success=False)    
 
+@app.route("/search", methods=['GET', 'POST'])
+@login_required
+def search():
+    if request.method == "POST":
+        dt = request.get_json()
+        if dt["query"] != "":
+            search = "%{}%".format(dt["query"])
+            results = Task.query.filter(Task.body.match(search)).all()
+        
+        taskList = []
+        for task in results:
+            taskList.append(f"task#{task.id}: {task.body}")
+        return jsonify(success=True, result=taskList)
+    return jsonify(success=False)
 
 @app.errorhandler(500)
 def server_error(e):
