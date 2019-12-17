@@ -12,6 +12,7 @@ from flask_moment import Moment
 from datetime import datetime
 from sqlalchemy import desc, asc
 import random
+import re
 
 
 
@@ -539,13 +540,16 @@ def search():
     if request.method == "POST":
         dt = request.get_json()
         if dt["query"] != "":
-            search = "%{}%".format(dt["query"])
-            results = Task.query.filter(Task.body.match(search)).all()
+            taskList, results = [], []
+            words = dt["query"].split();
+            for word in words:
+                search = "%{}%".format(word)
+                results = Task.query.filter(Task.body.match(search)).all()
+            for task in results:
+                taskList.append(f"task#{task.id}: {task.body}")
+            return jsonify(success=True, result=taskList)
         
-        taskList = []
-        for task in results:
-            taskList.append(f"task#{task.id}: {task.body}")
-        return jsonify(success=True, result=taskList)
+        
     return jsonify(success=False)
 
 @app.errorhandler(500)
