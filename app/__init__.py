@@ -194,7 +194,7 @@ def get_boards(id):
 @app.route("/project/<id>/getdata", methods=['GET'])
 @login_required
 def get_project_data(id):
-    current_project = Project.query.filter_by(id = id, creator_id = current_user.id, status = 'active').first()
+    current_project = Project.query.filter_by(id = id, status = 'active').first()
     if not current_project:
         return jsonify(success=False, error="There is no project")
     current_boards = current_project.boards.filter(Board.status != "deleted").order_by(asc(Board.project_order)).all()
