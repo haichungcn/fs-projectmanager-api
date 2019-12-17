@@ -161,7 +161,7 @@ def getuser():
         
 
     # Get all users' info:
-    users = User.query.filter(User.id!=1, status!='deleted').all()
+    users = User.query.filter(User.id!=1, User.status!='deleted').all()
     jsonized_user_objects_list = []
     userObject = {}
     for user in users:
