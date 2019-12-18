@@ -143,8 +143,15 @@ def getuser():
             if team.status != "deleted":
                 teams[f"team-{team.id}"] = team.as_dict()
                 members = []
+                userObject = {}
                 for user in team.users:
-                    members.append(user.as_dict())
+                    userObject = {
+                        "id": user.id,
+                        "username": user.username,
+                    }
+                    userObject["email"] = user.email if user.email else user.origin
+                    userObject["avatar_url"] = user.avatar_url if user.avatar_url else avatars[random.randint(0, 1)]
+                    members.append(userObject)
                 teams[f"team-{team.id}"]['members'] = members
                 teamList.append(f"team-{team.id}")
         object["teams"] = teams
