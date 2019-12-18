@@ -164,6 +164,14 @@ def getuser():
             if project.status != "deleted" and project.team_id == None:
                 projs[f"project-{project.id}"] = project.as_dict()
                 projList.append(f"project-{project.id}")
+                current_boards = project.boards.filter(Board.status != "deleted").order_by(asc(Board.project_order)).all()
+                boardList, boards = [], {}
+                for board in current_boards:
+                    boards[f"board-{board.id}"] = board.as_dict()
+                    boardList.append(f"board-{board.id}")
+                projs[f"project-{project.id}"]["boards"] = boards
+                projs[f"project-{project.id}"]["boardList"] = boardList
+
         object["projects"] = projs
         object["projectList"] = projList
         
@@ -424,7 +432,7 @@ def create_board():
         
         db.session.add(new_board)
         db.session.commit()
-        return jsonify(success=True)
+        return jsonify(success=True, board=new_board.as_dict())
     return jsonify(success=False)
 
 @app.route("/board/<id>", methods=['GET', 'POST'])
