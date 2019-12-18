@@ -273,7 +273,7 @@ def create_project():
             current_team = Team.query.get(dt['team_id'])
             if current_team.status == "active":
                 current_team.projects.append(new_project)
-
+        
         db.session.commit()
         return jsonify(success=True, project=new_project.as_dict())
     return jsonify(success=False)
@@ -323,7 +323,7 @@ def create_team():
         db.session.commit()
 
         print(new_team)
-        return jsonify(success=True, team=new_team.as_dict())
+        return jsonify(success=True, team=new_team.as_dict(), project=new_project.as_dict())
     return jsonify(success=False)
 
 @app.route("/team/<id>/editteam", methods=['GET', 'POST'])
@@ -532,7 +532,12 @@ def update_tasks(id):
                     task.order -= 1
         db.session.commit()
         return jsonify(success=True, task=current_task.as_dict())    
-    return jsonify(success=False)    
+    return jsonify(success=False)  
+
+# @app.route("/usersuggestion", methods=['GET'])
+# @login_required
+# def make_suggestions():
+    
 
 @app.route("/search", methods=['GET', 'POST'])
 @login_required
@@ -544,7 +549,8 @@ def search():
             words = dt["query"].split();
             for word in words:
                 search = "%{}%".format(word)
-                results = Task.query.filter(Task.body.match(search)).all()
+                results = Task.query.filter(Task.body.match(search)).filter_by(_or(Task.creator_id==current_user.id, Task.assignee_id==current_user.id)).all()
+                print("RESULT", results)
             for task in results:
                 taskList.append(f"task#{task.id}: {task.body}")
             return jsonify(success=True, result=taskList)
