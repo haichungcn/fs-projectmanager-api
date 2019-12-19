@@ -392,15 +392,12 @@ def edit_project(id):
         db.session.commit()
         
         current_boards = current_project.boards.filter(Board.status != "deleted").order_by(asc(Board.project_order)).all()
-        if len(current_boards) < 1:
-            return jsonify(success=True, project=current_project.as_dict())
-        boardList = []
+        boardList, boards = [], {}
         for board in current_boards:
+            boards[f"board-{board.id}"] = board.as_dict()
             boardList.append(f"board-{board.id}")
-        current_project = current_project.as_dict()
-        current_project["boardList"] = boardList
 
-        return jsonify(success=True, project=current_project.as_dict())
+        return jsonify(success=True, project=current_project.as_dict(), boards=boards, boardList=boardList)
     return jsonify(success=False)
 
 @app.route("/createboard", methods=['GET', 'POST'])
