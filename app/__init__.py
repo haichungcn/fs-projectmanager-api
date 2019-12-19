@@ -54,6 +54,7 @@ def create_user():
             username = dt['username'],
             origin = 'email',
             role_id = 2,
+            avatar_url = dt['avatar_url']
         )
         user.set_password(dt['password'])
         db.session.add(user)
@@ -121,8 +122,7 @@ def getuser():
             "origin": current_user.origin,
         }
     }
-
-    object["user"]["avatar_url"] = current_user.avatar_url if current_user.avatar_url else avatars[random.randint(0, 1)]
+    object["user"]["avatar_url"] = current_user.avatar_url if current_user.avatar_url != None else avatars[random.randint(0, 1)]
     
     # Get User's Boards
     current_boards = current_user.boards\
@@ -150,7 +150,7 @@ def getuser():
                         "username": user.username,
                     }
                     userObject["email"] = user.email if user.email else user.origin
-                    userObject["avatar_url"] = user.avatar_url if user.avatar_url else avatars[random.randint(0, 1)]
+                    userObject["avatar_url"] = user.avatar_url if user.avatar_url != None else avatars[random.randint(0, 1)]
                     members.append(userObject)
                 teams[f"team-{team.id}"]['members'] = members
                 teamList.append(f"team-{team.id}")
@@ -186,7 +186,7 @@ def getuser():
             "username": user.username,
         }
         userObject["email"] = user.email if user.email else user.origin
-        userObject["avatar_url"] = user.avatar_url if user.avatar_url else avatars[random.randint(0, 1)]
+        userObject["avatar_url"] = user.avatar_url if user.avatar_url != None else avatars[random.randint(0, 1)]
         jsonized_user_objects_list.append(userObject)
 
     object["users"] = jsonized_user_objects_list
@@ -245,7 +245,7 @@ def get_team_data(id):
         else:
             userObject['email'] = user.origin
 
-        if user.avatar_url:
+        if user.avatar_url != None:
             userObject["avatar_url"] = user.avatar_url
         else: 
             userObject["avatar_url"] = avatars[random.randint(0, 1)]
@@ -277,10 +277,17 @@ def create_project():
             creator_id = current_user.id,
         )
         db.session.add(new_project)
+        db.session.commit()
 
         if dt["project_type"] == "personal":
             new_project.project_type = "personal"
             new_project.users.append(current_user)
+            new_board = Board(name="To-Do", creator_id=current_user.id, project_id=new_project.id, project_order=1)
+            db.session.add(new_board)
+            db.session.commit()
+            boards, boardList = {}, []
+            boards[f"board-{new_board.id}"] = new_board.as_dict()
+            boardList.append(f"board-{new_board.id}")
             
         if dt["project_type"] == "team" and dt['team_id']:
             new_project.team_id = dt['team_id']
@@ -288,9 +295,14 @@ def create_project():
             current_team = Team.query.get(dt['team_id'])
             if current_team.status == "active":
                 current_team.projects.append(new_project)
+                new_board = Board(name="To-Do", creator_id=current_user.id, project_id=new_project.id, project_order=1)
+                db.session.add(new_board)
+                db.session.commit()
+                boards, boardList = {}, []
+                boards[f"board-{new_board.id}"] = new_board.as_dict()
+                boardList.append(f"board-{new_board.id}")
         
-        db.session.commit()
-        return jsonify(success=True, project=new_project.as_dict())
+        return jsonify(success=True, project=new_project.as_dict(), boards=boards, boardList=boardList)
     return jsonify(success=False)
 
 @app.route("/createteam", methods=['GET', 'POST'])
