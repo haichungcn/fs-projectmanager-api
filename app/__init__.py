@@ -358,6 +358,7 @@ def create_team():
 
         elif dt['projecttype'] == "user":
             for i, user in enumerate(new_team.users):
+                boards, boardList = {}, []
                 new_board = Board(name=user.username, creator_id=current_user.id, project_id=new_project.id, project_order=i+1)
                 db.session.add(new_board)
                 db.session.commit()
