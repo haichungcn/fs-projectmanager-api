@@ -255,8 +255,17 @@ def get_team_data(id):
     projectList, projects = [], {}
     if len(current_projects) > 0:
         for project in current_projects:
-            projects[f"project-{project.id}"] = project.as_dict()
-            projectList.append(f"project-{project.id}")
+            current_boards = project.boards.filter(Board.status != "deleted").order_by(asc(Board.project_order)).all()
+            project = project.as_dict()
+            boardList, boards = [], {}
+            for board in current_boards:
+                boards[f"board-{board.id}"] = board.as_dict()
+                boardList.append(f"board-{board.id}")
+                project["boards"] = boards
+                project["boardList"] = boardList
+            projId = project["id"]
+            projects[f"project-{projId}"] = project
+            projectList.append(f"project-{projId}")
         current_team["projectList"] = projectList
 
     # print("sdfsdfsdf", current_team.users)
@@ -332,25 +341,38 @@ def create_team():
         db.session.add(new_project)
         db.session.commit()
         if dt['projecttype'] == "todo":
+            boards, boardList = {}, []
             new_board_1 = Board(name="To-Do", creator_id=current_user.id, project_id=new_project.id, project_order=1)
             new_board_2 = Board(name="Doing", creator_id=current_user.id, project_id=new_project.id, project_order=2)
             new_board_3 = Board(name="Done", creator_id=current_user.id, project_id=new_project.id, project_order=3)
             db.session.add(new_board_1)
             db.session.add(new_board_2)
             db.session.add(new_board_3)
+            db.session.commit()
+            boards[f"board-{new_board_1.id}"] = new_board_1.as_dict()
+            boards[f"board-{new_board_2.id}"] = new_board_2.as_dict()
+            boards[f"board-{new_board_3.id}"] = new_board_3.as_dict()
+            boardList.append(f"board-{new_board_1.id}")
+            boardList.append(f"board-{new_board_2.id}")
+            boardList.append(f"board-{new_board_3.id}")
 
         elif dt['projecttype'] == "user":
             for i, user in enumerate(new_team.users):
                 new_board = Board(name=user.username, creator_id=current_user.id, project_id=new_project.id, project_order=i+1)
                 db.session.add(new_board)
+                db.session.commit()
+                boards[f"board-{new_board.id}"] = new_board.as_dict()
+                boardList.append(f"board-{new_board.id}")
         elif dt['projecttype'] == "none":
             new_board = Board(name="To-Do", creator_id=current_user.id, project_id=new_project.id, project_order=1)
             db.session.add(new_board)
+            db.session.commit()
+            boards[f"board-{new_board.id}"] = new_board.as_dict()
+            boardList.append(f"board-{new_board.id}")
         
-        db.session.commit()
 
         print(new_team)
-        return jsonify(success=True, team=new_team.as_dict(), project=new_project.as_dict())
+        return jsonify(success=True, team=new_team.as_dict(), project=new_project.as_dict(), boards=boards, boardList=boardList)
     return jsonify(success=False)
 
 @app.route("/team/<id>/editteam", methods=['GET', 'POST'])
