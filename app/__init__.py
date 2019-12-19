@@ -572,7 +572,7 @@ def search():
             words = dt["query"].split();
             for word in words:
                 search = "%{}%".format(word)
-                results = Task.query.filter(Task.body.match(search)).filter_by(_or(Task.creator_id==current_user.id, Task.assignee_id==current_user.id)).all()
+                results = Task.query.filter(Task.body.match(search) & ((Task.creator_id==current_user.id) | (Task.assignee_id==current_user.id))).all()
                 print("RESULT", results)
             for task in results:
                 taskList.append(f"task#{task.id}: {task.body}")
