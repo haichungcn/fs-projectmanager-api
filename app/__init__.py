@@ -536,7 +536,15 @@ def update_tasks(id):
             current_task.note = dt['note'],
             current_task.priority = dt['priority'],
             current_task.duedate = datetime.strptime(dt['duedate'], "%Y-%m-%dT%H:%M:%S.%fZ"),
-            current_task.assignee_id = dt['assignees'],
+            if len(dt['assignees']) > 0:
+                for id in dt['assignees']:
+                    if id is int:
+                        new_user = User.query.get(id) 
+                        if new_user:
+                            if not new_task in new_user.assigned_tasks:
+                                new_user.assigned_tasks.append(current_task)
+            else : current_user.assigned_tasks.append(current_task)
+
         if dt['type'] == "delete":
             current_task.status = dt['status']
             following_tasks = Task.query\
